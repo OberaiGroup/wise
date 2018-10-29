@@ -1,0 +1,111 @@
+# design parameters associated with wing
+despmtr   series_w  4409
+
+dimension  wing     3  5  1
+
+#                     x       y      z   chord  angle
+despmtr    wing    " 4.00;  0.00;  0.20;  4.00;  0.00;\
+                     8.50;  4.00;  0.20;  1.40;  0.00;\
+                     9.00;  4.60;  0.80;  1.00;  0.00;"
+
+# build the wing
+mark
+   udprim    naca      Series    series_w
+   rotatez   -wing[1,5]   0   0
+   rotatex   90           0   0
+   scale     wing[1,4]
+   translate wing[1,1]    wing[1,2]   wing[1,3]
+
+   udprim    naca      Series    series_w
+   rotatez   -wing[2,5]   0   0
+   rotatex   90           0   0
+   scale     wing[2,4]
+   translate wing[2,1]    +wing[2,2]   wing[2,3]
+rule
+store inner_wing
+
+mark
+   udprim    naca      Series    series_w
+   rotatez   -wing[2,5]   0   0
+   rotatex   90           0   0
+   scale     wing[2,4]
+   translate wing[2,1]    +wing[2,2]   wing[2,3]
+
+   udprim    naca      Series    series_w
+   rotatez   -wing[3,5]   0   0
+   rotatex   90           0   0
+   scale     wing[3,4]
+   translate wing[3,1]    +wing[3,2]   wing[3,3]
+rule
+store outer_wing
+
+restore inner_wing
+restore outer_wing
+union
+store right_wing
+
+restore right_wing
+hollow # 0.05 @nbody;7
+store right_wing_oml
+
+
+# Add ribs to wing
+set num_ribs       7
+set rib_thickness  0.0
+set num_spars      2
+set spar_thickness 0.0
+
+set span           wing[3,2]-wing[1,2]
+set cRoot          wing[1,4]
+set cTip           wing[3,4]
+set drop           wing[3,1]-wing[1,1]
+set sweepAngle     atan2d(drop,span)
+set wing_thickness 3.0
+set o_x            wing[1,1]
+set o_y            wing[1,2]
+set o_z            wing[1,3]
+
+restore right_wing
+
+udparg $$/even_ribs thickness   rib_thickness
+udparg $$/even_ribs span        span
+udparg $$/even_ribs c_root      cRoot
+udparg $$/even_ribs w_thickness wing_thickness
+udparg $$/even_ribs o_x         o_x
+udparg $$/even_ribs o_y         o_y
+udparg $$/even_ribs o_z         o_z
+udparg $$/even_ribs sweep_ang   sweepAngle
+udparg $$/even_ribs num_ribs    num_ribs
+
+udprim $$/even_ribs
+
+restore right_wing
+
+udparg $$/even_spars thickness   spar_thickness
+udparg $$/even_spars span        span
+udparg $$/even_spars c_root      cRoot
+udparg $$/even_spars c_tip       cTip
+udparg $$/even_spars sweep_ang   sweepAngle
+udparg $$/even_spars w_thickness wing_thickness
+udparg $$/even_spars o_x         o_x
+udparg $$/even_spars o_y         o_y
+udparg $$/even_spars o_z         o_z
+udparg $$/even_spars num_spars   num_spars
+
+udprim $$/even_spars
+
+patbeg i num_ribs+2
+  ifthen i eq 1 or i eq num_ribs+2
+  else
+    restore ribs i 0
+  endif
+patend
+
+patbeg i num_spars+2
+  ifthen i eq 1 or i eq num_spars+2
+  else
+    restore spars i 0
+  endif
+patend
+
+end
