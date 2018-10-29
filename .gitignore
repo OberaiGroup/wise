@@ -1,0 +1,2 @@
+# Ignore the port journal no matter the location
+**/port*.jrnl
