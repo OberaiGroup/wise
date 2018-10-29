@@ -1,0 +1,227 @@
+# x15fluidv3.csm written by ocsmSave (v1.11)
+
+# Constant and Design Parameters:
+despmtr   unionOrNot       1.00000
+despmtr   cRoot       9.73870
+despmtr   cTip       2.98000
+despmtr   sweepAngle      36.75000
+despmtr   span       7.55720
+despmtr   wingOffset       0.01000
+despmtr   bRoot       5.84320
+despmtr   bTip       2.41519
+despmtr   bsweepAngle      52.00000
+despmtr   bspan       4.28500
+despmtr   bWingStartx      12.46550
+despmtr   fuselageDiameter       3.73970
+despmtr   fuseEnd      19.08780
+despmtr   fuseStart      -6.07690
+despmtr   conSectRad       0.97382
+despmtr   conSectStart      -3.50640
+despmtr   noseTipStart     -26.09965
+despmtr   circ1diameter       0.20800
+despmtr   circ2diameter       0.77100
+despmtr   circ3diameter       1.12500
+despmtr   circ4diameter       1.04200
+despmtr   circ1x       0.11670
+despmtr   circ2x       0.40860
+despmtr   circ3x       0.68090
+despmtr   circ4x       0.85600
+despmtr   circ5x       1.00000
+despmtr   engineDistance       2.41520
+despmtr   eng1x       0.00000
+despmtr   eng2x       0.38710
+despmtr   eng3x       0.80650
+despmtr   eng4x       1.00000
+despmtr   eng1diameter       1.00000
+despmtr   eng2diameter       0.91600
+despmtr   eng3diameter       0.79170
+despmtr   eng4diameter       0.77080
+despmtr   tailHeight       4.58000
+despmtr   tailTopLength       7.56000
+despmtr   tailBottomLength      10.21000
+despmtr   tailStartPoint      10.12820
+despmtr   tailxAngle       2.50000
+despmtr   prongLength       2.25937
+despmtr   prongyStart       2.49310
+despmtr   prongRadius       0.19477
+
+# Global Attributes:
+
+# Branches:
+set       noseDistance noseTipStart-fuseStart
+set       yStartRoot (fuselageDiameter/2+conSectRad)*0.959
+set       xStartTip tand(sweepAngle)*span
+
+# Wing creation
+udparg    naca456   thkcode   $66
+udparg    naca456   camcode   $6
+udparg    naca456   toc   0.05
+udparg    naca456   cl   0.00
+udprim    naca456
+store     naca66005   0   0
+mark
+restore   naca66005   0
+scale     cTip
+rotatex   90   0   0
+translate xStartTip   span+yStartRoot   0
+rotatey   1   0   0
+restore   naca66005   0
+scale     cRoot
+rotatex   90   0   0
+translate 0   yStartRoot+wingOffset   0
+restore   naca66005   0
+scale     cRoot
+rotatex   90   0   0
+translate 0   -yStartRoot-wingOffset   0
+restore   naca66005   0
+scale     cTip
+rotatex   90   0   0
+translate xStartTip   -span-yStartRoot   0
+rotatey   1   0   0
+rule      0
+
+########################################
+#                                      #
+#   Below is added to x15 script.      #
+#                                      #
+########################################
+
+set true  1
+set false 0 
+
+# Truncate body, leave only right wing
+set wing_thickness 1
+box 0      yStartRoot wing_thickness/2.0 \
+    cRoot  span+wingOffset  -wing_thickness
+intersect
+store right_wing 0 1
+
+
+# USER: Set number of ribs
+# USER: Set number of span
+# USER: Set to union into one body
+set num_ribs       5
+set num_spars      3
+set rib_thickness  0.0
+set spar_thickness 0.0
+set skin_thickness 0.0
+set union_all      false
+
+######################################
+# evaluating `hollow skin_thickness` #
+# with `skin_thickness != 0.0`       #
+# throws error (26JUN2018:ESP113)    #
+######################################
+ifthen skin_thickness eq 0.0        
+  hollow skin_thickness           
+  store right_wing_hollow        
+endif                                
+######################################
+
+# Waffle plane for XZ (ribs)
+set num_xz_planes num_ribs+1
+patbeg i num_xz_planes+1
+  # Avoid doing outer most rib due to sheet-sheet 
+  # intersection problem
+  ifthen i eq 1 or i eq num_xz_planes+1
+  else
+    restore right_wing
+    set s_percent (i-1)/(num_ribs+1)
+
+    udparg $$/make_rib thickness   rib_thickness
+    udparg $$/make_rib s_percent   s_percent
+    udparg $$/make_rib span        span
+    udparg $$/make_rib c_root      cRoot
+    udparg $$/make_rib w_thickness wing_thickness
+    udparg $$/make_rib o_x         wingOffset
+    udparg $$/make_rib o_y         yStartRoot
+    udparg $$/make_rib o_z         0
+
+    udprim $$/make_rib
+    store ribs i 0
+
+  endif
+patend
+
+mark
+patbeg i num_xz_planes+1
+  ifthen i eq 1 or i eq num_xz_planes+1
+  else
+    restore ribs i 0
+    attribute _name $rib+val2str(i,0)
+  endif
+patend
+
+# dump ribs.stp 0 1
+# dump ribs.stl 0 1
+
+
+ifthen union_all eq true
+  restore right_wing_hollow
+
+  patbeg i num_ribs
+    union
+  patend
+
+  store wing_and_ribs
+endif
+
+# Waffle plane for spars
+set num_xy_planes       num_spars+1
+
+patbeg i num_xy_planes+1
+  # Avoid doing outer most spar due to sheet-sheet 
+  # intersection problem
+  ifthen i eq 1 or i eq num_xy_planes+1
+  else
+
+    restore right_wing
+    set c_percent (i-1)/(num_spars+1)
+
+    udparg $$/make_spar thickness   spar_thickness
+    udparg $$/make_spar c_percent   c_percent
+    udparg $$/make_spar span        span
+    udparg $$/make_spar c_root      cRoot
+    udparg $$/make_spar c_tip       cTip
+    udparg $$/make_spar sweep_ang   sweepAngle
+    udparg $$/make_spar w_thickness wing_thickness
+    udparg $$/make_spar o_x         wingOffset
+    udparg $$/make_spar o_y         yStartRoot
+    udparg $$/make_spar o_z         0
+
+    udprim $$/make_spar
+    store spars i 0
+
+  endif
+patend
+
+mark
+patbeg i num_xy_planes+1
+  ifthen i eq 1 or i eq num_xy_planes+1
+  else
+    restore spars i 0
+    attribute _name $spar+val2str(i,0)
+  endif
+patend
+
+dump spars.stp 0 1
+dump spars.stl 0 1
+
+ifthen union_all eq true
+  restore wing_and_ribs
+
+  patbeg i num_spars
+    union
+  patend
+
+else
+  restore right_wing_hollow
+  cylinder 5 2.5 0 5 2.75 0 0.1
+  subtract
+  attribute _name $wing
+endif
+
+dump wing.stp
+dump wing.stl
+
+end
